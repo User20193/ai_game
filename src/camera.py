@@ -70,3 +70,21 @@ class Camera:
         zoomed_h = entity_rect.height * self.zoom
 
         return pygame.Rect(zoomed_x, zoomed_y, zoomed_w, zoomed_h)
+
+    def screen_to_world(self, screen_x, screen_y):
+        """
+        Переводит координаты курсора на экране в координаты игрового мира,
+        выполняя обратные преобразования зума и сдвига камеры.
+        """
+        center_x = self.width / 2
+        center_y = self.height / 2
+
+        # 1. Отменяем зум
+        dist_x = (screen_x - center_x) / self.zoom
+        dist_y = (screen_y - center_y) / self.zoom
+
+        # 2. Отменяем сдвиг камеры
+        world_x = dist_x + center_x + self.x
+        world_y = dist_y + center_y + self.y
+
+        return world_x, world_y

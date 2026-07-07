@@ -9,21 +9,32 @@ class World:
         # В будущем здесь можно прикрутить шум Перлина для генерации биомов по сиду.
         # Пока мы сгенерируем словарь чанков "на лету" (ленивая генерация)
         self.chunks = {}
+        self.chunk_surfaces = {} # Кэш поверхностей чанков
         self.CHUNK_SIZE = 16 # 16x16 тайлов в одном чанке
+
+        # Ограничения карты (в чанках)
+        self.WORLD_WIDTH = 10  # От 0 до 9
+        self.WORLD_HEIGHT = 10 # От 0 до 9
 
         # Цвета для тестов (трава разных оттенков)
         self.colors = [
-            (34, 139, 34),   # Forest Green
-            (50, 205, 50),   # Lime Green
-            (154, 205, 50),  # Yellow Green
-            (107, 142, 35)   # Olive Drab
+            (34, 139, 34),   # 0: Forest Green
+            (50, 205, 50),   # 1: Lime Green
+            (154, 205, 50),  # 2: Yellow Green
+            (107, 142, 35),  # 3: Olive Drab
+            (100, 100, 100)  # 4: Дорога (Серый)
         ]
 
     def get_chunk(self, chunk_x, chunk_y):
         """Возвращает чанк по его координатам. Если его нет - генерирует."""
+        # Проверка выхода за границы мира
+        if chunk_x < 0 or chunk_x >= self.WORLD_WIDTH or chunk_y < 0 or chunk_y >= self.WORLD_HEIGHT:
+            return None
+
         chunk_pos = (chunk_x, chunk_y)
         if chunk_pos not in self.chunks:
             self.chunks[chunk_pos] = self.generate_chunk(chunk_x, chunk_y)
+            self.render_chunk_surface(chunk_x, chunk_y) # Сразу кэшируем поверхность
         return self.chunks[chunk_pos]
 
     def generate_chunk(self, chunk_x, chunk_y):
@@ -39,9 +50,44 @@ class World:
             chunk_data.append(row)
         return chunk_data
 
+    def render_chunk_surface(self, chunk_x, chunk_y):
+        """Создает Pygame Surface для чанка, отрисовывая на ней все тайлы один раз."""
+        chunk = self.chunks.get((chunk_x, chunk_y))
+        if not chunk: return
+
+        # Размер поверхности чанка в пикселях
+        pixel_size = self.CHUNK_SIZE * self.TILE_SIZE
+        surf = pygame.Surface((pixel_size, pixel_size))
+
+        for ty in range(self.CHUNK_SIZE):
+            for tx in range(self.CHUNK_SIZE):
+                color_idx = chunk[ty][tx]
+                color = self.colors[color_idx]
+                rect = pygame.Rect(tx * self.TILE_SIZE, ty * self.TILE_SIZE, self.TILE_SIZE, self.TILE_SIZE)
+                pygame.draw.rect(surf, color, rect)
+
+        self.chunk_surfaces[(chunk_x, chunk_y)] = surf
+
+    def set_tile(self, world_x, world_y, color_idx):
+        """Изменяет тайл по мировым пиксельным координатам и перерисовывает чанк."""
+        tile_x = int(world_x // self.TILE_SIZE)
+        tile_y = int(world_y // self.TILE_SIZE)
+
+        chunk_x = tile_x // self.CHUNK_SIZE
+        chunk_y = tile_y // self.CHUNK_SIZE
+
+        chunk = self.get_chunk(chunk_x, chunk_y)
+        if chunk:
+            local_x = tile_x % self.CHUNK_SIZE
+            local_y = tile_y % self.CHUNK_SIZE
+            chunk[local_y][local_x] = color_idx
+            # Обновляем кэш поверхности
+            self.render_chunk_surface(chunk_x, chunk_y)
+
     def render(self, surface, camera):
         """
-        Отрисовывает только те тайлы, которые попадают в область видимости камеры.
+        Отрисовывает только те чанки, которые попадают в область видимости камеры,
+        используя заранее отрендеренные поверхности.
         """
         # Определяем, какую область мира мы сейчас видим, с учетом зума
         # Если зум < 1 (отдаление), мы видим больше мира
@@ -73,35 +119,24 @@ class World:
         for cy in range(start_chunk_y, end_chunk_y + 1):
             for cx in range(start_chunk_x, end_chunk_x + 1):
                 chunk = self.get_chunk(cx, cy)
+                if not chunk: continue # Пропускаем, если вышли за границы мира
 
-                # Отрисовываем тайлы внутри чанка
-                for ty in range(self.CHUNK_SIZE):
-                    for tx in range(self.CHUNK_SIZE):
-                        world_tile_x = cx * self.CHUNK_SIZE + tx
-                        world_tile_y = cy * self.CHUNK_SIZE + ty
+                chunk_surf = self.chunk_surfaces.get((cx, cy))
+                if chunk_surf:
+                    # Вычисляем позицию чанка в мире
+                    world_rect = pygame.Rect(
+                        cx * self.CHUNK_SIZE * self.TILE_SIZE,
+                        cy * self.CHUNK_SIZE * self.TILE_SIZE,
+                        self.CHUNK_SIZE * self.TILE_SIZE,
+                        self.CHUNK_SIZE * self.TILE_SIZE
+                    )
 
-                        # Проверяем, попадает ли тайл в видимую область (для оптимизации краев чанков)
-                        if (start_tile_x <= world_tile_x <= end_tile_x and
-                            start_tile_y <= world_tile_y <= end_tile_y):
+                    # Получаем позицию на экране с учетом зума камеры
+                    screen_rect = camera.apply(world_rect)
 
-                            # Получаем цвет тайла
-                            color_idx = chunk[ty][tx]
-                            color = self.colors[color_idx]
+                    # Масштабируем поверхность чанка
+                    # Чтобы избежать искажений, преобразуем к целочисленным размерам
+                    target_size = (int(screen_rect.width) + 1, int(screen_rect.height) + 1)
+                    scaled_surf = pygame.transform.scale(chunk_surf, target_size)
 
-                            # Реальные координаты тайла в мире
-                            world_rect = pygame.Rect(
-                                world_tile_x * self.TILE_SIZE,
-                                world_tile_y * self.TILE_SIZE,
-                                self.TILE_SIZE,
-                                self.TILE_SIZE
-                            )
-
-                            # Преобразуем через камеру для отрисовки на экране
-                            screen_rect = camera.apply(world_rect)
-
-                            # Чтобы избежать зазоров между тайлами из-за округления Float при зуме,
-                            # мы можем округлить (ceil) размеры
-                            screen_rect.width = int(screen_rect.width) + 1
-                            screen_rect.height = int(screen_rect.height) + 1
-
-                            pygame.draw.rect(surface, color, screen_rect)
+                    surface.blit(scaled_surf, (screen_rect.x, screen_rect.y))
