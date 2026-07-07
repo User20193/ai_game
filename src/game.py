@@ -7,6 +7,7 @@ class Game:
         pygame.init()
         self.WINDOW_WIDTH = 1280
         self.WINDOW_HEIGHT = 720
+        self.is_fullscreen = False
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         pygame.display.set_caption("Лисеу-Сити")
 
@@ -36,7 +37,23 @@ class Game:
         for event in events:
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F11:
+                    self.toggle_fullscreen()
         return events
+
+    def toggle_fullscreen(self):
+        self.is_fullscreen = not self.is_fullscreen
+        if self.is_fullscreen:
+            # Получаем текущее разрешение экрана пользователя
+            display_info = pygame.display.Info()
+            self.WINDOW_WIDTH = display_info.current_w
+            self.WINDOW_HEIGHT = display_info.current_h
+            self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT), pygame.FULLSCREEN)
+        else:
+            self.WINDOW_WIDTH = 1280
+            self.WINDOW_HEIGHT = 720
+            self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
 
     def update(self, events):
         # Обновляем только текущее (верхнее) состояние

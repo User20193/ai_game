@@ -73,7 +73,9 @@ class MenuState(State):
             if self.buttons["quit"].check_click(self.mouse_pos, event):
                 self.game.running = False
             elif self.buttons["new_game"].check_click(self.mouse_pos, event):
-                print("Clicked: New Game (Not implemented yet)")
+                from src.states.play_state import PlayState
+                play_state = PlayState(self.game)
+                play_state.enter_state()
             elif self.buttons["settings"].check_click(self.mouse_pos, event):
                 print("Clicked: Settings (Not implemented yet)")
             elif self.buttons["credits"].check_click(self.mouse_pos, event):
