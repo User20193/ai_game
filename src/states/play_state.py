@@ -2,6 +2,7 @@ import pygame
 from .base_state import State
 from src.camera import Camera
 from src.world import World
+from src.entities.citizen import Citizen
 
 class PlayState(State):
     def __init__(self, game):
@@ -20,6 +21,15 @@ class PlayState(State):
         self.camera.x = (world_pixel_width / 2) - (self.camera.width / 2)
         self.camera.y = (world_pixel_height / 2) - (self.camera.height / 2)
 
+        # Менеджер сущностей
+        self.entities = []
+
+        # Спавним первого жителя (Мэра) прямо в центре Мэрии
+        mayor_x = world_pixel_width / 2
+        mayor_y = world_pixel_height / 2
+        mayor = Citizen(mayor_x, mayor_y, self.game.language)
+        self.entities.append(mayor)
+
     def update(self, dt, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -34,12 +44,20 @@ class PlayState(State):
         # Обновляем размеры мира в камере, на случай если был переключен полноэкранный режим
         self.camera.update_screen_size(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
 
+        # Обновляем все сущности
+        for entity in self.entities:
+            entity.update(dt)
+
     def render(self, surface):
         # Заливаем фон базовым цветом (например, цвет пустоты вокруг карты)
         surface.fill((30, 30, 30))
 
         # Отрисовываем мир с учетом позиции и зума камеры
         self.world.render(surface, self.camera)
+
+        # Отрисовываем сущности
+        for entity in self.entities:
+            entity.render(surface, self.camera)
 
         # Отрисовываем отладочную информацию (Координаты камеры и зум)
         debug_text = f"Cam: ({int(self.camera.x)}, {int(self.camera.y)}) | Zoom: {self.camera.zoom:.2f}"
