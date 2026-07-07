@@ -22,8 +22,14 @@ class World:
             (50, 205, 50),   # 1: Lime Green
             (154, 205, 50),  # 2: Yellow Green
             (107, 142, 35),  # 3: Olive Drab
-            (100, 100, 100)  # 4: Дорога (Серый)
+            (100, 100, 100), # 4: Дорога (Серый)
+            (240, 230, 210), # 5: Стена Мэрии (Бежевый)
+            (178, 34, 34),   # 6: Крыша Мэрии (Темно-красный)
+            (139, 69, 19)    # 7: Дверь (Коричневый)
         ]
+
+        # Генерируем центр города при старте
+        self.build_city_center()
 
     def get_chunk(self, chunk_x, chunk_y):
         """Возвращает чанк по его координатам. Если его нет - генерирует."""
@@ -45,8 +51,8 @@ class World:
         for y in range(self.CHUNK_SIZE):
             row = []
             for x in range(self.CHUNK_SIZE):
-                # 0, 1, 2, 3 - индексы цветов в self.colors
-                row.append(random.randint(0, len(self.colors) - 1))
+                # 0, 1, 2, 3 - индексы цветов в self.colors (только трава)
+                row.append(random.randint(0, 3))
             chunk_data.append(row)
         return chunk_data
 
@@ -83,6 +89,56 @@ class World:
             chunk[local_y][local_x] = color_idx
             # Обновляем кэш поверхности
             self.render_chunk_surface(chunk_x, chunk_y)
+
+    def set_tile_by_index(self, tile_x, tile_y, color_idx):
+        """Изменяет тайл по его индексным координатам в мире."""
+        chunk_x = tile_x // self.CHUNK_SIZE
+        chunk_y = tile_y // self.CHUNK_SIZE
+
+        chunk = self.get_chunk(chunk_x, chunk_y)
+        if chunk:
+            local_x = tile_x % self.CHUNK_SIZE
+            local_y = tile_y % self.CHUNK_SIZE
+            chunk[local_y][local_x] = color_idx
+            self.render_chunk_surface(chunk_x, chunk_y)
+
+    def build_city_center(self):
+        """Генерирует все чанки и строит Мэрию с дорогой в центре карты."""
+        # Сначала генерируем все чанки
+        for cy in range(self.WORLD_HEIGHT):
+            for cx in range(self.WORLD_WIDTH):
+                self.get_chunk(cx, cy)
+
+        # Центр мира в тайлах
+        center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
+        center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
+
+        # Размеры мэрии (в тайлах)
+        b_width = 10
+        b_height = 6
+
+        start_x = center_tx - b_width // 2
+        start_y = center_ty - b_height // 2
+
+        # Рисуем здание
+        for y in range(start_y, start_y + b_height):
+            for x in range(start_x, start_x + b_width):
+                if y == start_y or y == start_y + 1:
+                    self.set_tile_by_index(x, y, 6) # Крыша
+                else:
+                    self.set_tile_by_index(x, y, 5) # Стена
+
+        # Рисуем дверь
+        door_x = center_tx
+        door_y = start_y + b_height - 1
+        self.set_tile_by_index(door_x, door_y, 7)
+        self.set_tile_by_index(door_x, door_y - 1, 7)
+
+        # Рисуем дорогу перед мэрией
+        road_y = start_y + b_height
+        for x in range(start_x - 5, start_x + b_width + 5):
+            self.set_tile_by_index(x, road_y, 4)
+            self.set_tile_by_index(x, road_y + 1, 4)
 
     def render(self, surface, camera):
         """
