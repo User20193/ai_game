@@ -19,21 +19,18 @@ class World:
         self.WORLD_WIDTH = 20  # От 0 до 19
         self.WORLD_HEIGHT = 20 # От 0 до 19
 
-        # Цвета для тестов (трава разных оттенков)
+        # Палитра
         self.colors = [
-            (34, 139, 34),   # 0: Forest Green
-            (50, 205, 50),   # 1: Lime Green
-            (154, 205, 50),  # 2: Yellow Green
-            (107, 142, 35),  # 3: Olive Drab
+            (124, 204, 31),  # 0: Чистая трава (Светло-зеленый)
+            (0, 0, 0),       # 1: Зарезервировано (ранее шум)
+            (0, 0, 0),       # 2: Зарезервировано (ранее шум)
+            (0, 0, 0),       # 3: Зарезервировано (ранее шум)
             (100, 100, 100), # 4: Дорога (Серый)
             (240, 230, 210), # 5: Стена Мэрии (Бежевый)
             (178, 34, 34),   # 6: Крыша Мэрии (Темно-красный)
             (139, 69, 19),   # 7: Дверь (Коричневый)
             (205, 170, 125), # 8: Пол внутри (Светлое дерево)
             (101, 67, 33),   # 9: Стойка (Темное дерево)
-            (65, 105, 225),  # 10: Вода (Синий)
-            (0, 100, 0),     # 11: Дерево Крона (Темно-зеленый)
-            (139, 69, 19)    # 12: Ствол дерева (Коричневый)
         ]
 
         # Генерируем центр города при старте
@@ -47,34 +44,8 @@ class World:
         chunk_pos = (chunk_x, chunk_y)
         if chunk_pos not in self.chunks_ground:
             # Инициализируем пустые матрицы
-            ground_data = [[None for _ in range(self.CHUNK_SIZE)] for _ in range(self.CHUNK_SIZE)]
+            ground_data = [[0 for _ in range(self.CHUNK_SIZE)] for _ in range(self.CHUNK_SIZE)] # 0 - чистая трава
             roof_data = [[None for _ in range(self.CHUNK_SIZE)] for _ in range(self.CHUNK_SIZE)]
-
-            import math
-            for ty in range(self.CHUNK_SIZE):
-                for tx in range(self.CHUNK_SIZE):
-                    world_tx = chunk_x * self.CHUNK_SIZE + tx
-                    world_ty = chunk_y * self.CHUNK_SIZE + ty
-
-                    # Псевдо-шум на основе синусов для генерации биомов
-                    noise_val = math.sin(world_tx * 0.1) + math.cos(world_ty * 0.1) + math.sin((world_tx + world_ty) * 0.05)
-
-                    if noise_val > 1.2:
-                        # Вода
-                        ground_data[ty][tx] = 10
-                    elif noise_val < -1.0:
-                        # Лес
-                        ground_data[ty][tx] = random.choice([0, 1]) # Темная трава
-                        # Добавляем дерево на слое крыши (каждый второй тайл, чтобы не было сплошной массы)
-                        if (tx + ty) % 2 == 0:
-                            roof_data[ty][tx] = 11 # Крона
-                            ground_data[ty][tx] = 12 # Ствол
-                    else:
-                        # Обычная трава
-                        if random.random() > 0.9:
-                            ground_data[ty][tx] = random.choice([2, 3]) # Редкие вкрапления
-                        else:
-                            ground_data[ty][tx] = random.choice([0, 1]) # Базовая трава
 
             self.chunks_ground[chunk_pos] = ground_data
             self.chunks_roof[chunk_pos] = roof_data
