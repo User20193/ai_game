@@ -1,52 +1,22 @@
-import pygame
+import os
 import sys
 
-# Настройки экрана и игры
-WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 720
-FPS = 60
+# Добавляем корневую директорию в путь, чтобы импорты из src работали корректно
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+from src.game import Game
+from src.states.menu_state import MenuState
 
 def main():
-    # Инициализация Pygame
-    pygame.init()
+    # Создаем экземпляр игры
+    game = Game()
 
-    # Настройка экрана
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Симуляция Города (AI Game)")
+    # Создаем и добавляем главное меню как первое состояние
+    menu = MenuState(game)
+    menu.enter_state()
 
-    # Часы для управления FPS и вычисления delta time
-    clock = pygame.time.Clock()
-
-    running = True
-
-    # Игровой цикл
-    while running:
-        # 1. Вычисление delta time (в секундах)
-        dt = clock.tick(FPS) / 1000.0
-
-        # 2. Обработка событий
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-
-        # 3. Обновление логики (update)
-        # Здесь будет логика ECS, систем, камеры и т.д.
-
-        # 4. Отрисовка (render)
-        # Очистка экрана черным цветом
-        screen.fill((0, 0, 0))
-
-        # Здесь будет отрисовка карты, сущностей, интерфейса
-
-        # Обновление экрана
-        pygame.display.flip()
-
-    # Корректный выход
-    pygame.quit()
-    sys.exit()
+    # Запускаем игровой цикл
+    game.run()
 
 if __name__ == "__main__":
     main()
