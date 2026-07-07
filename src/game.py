@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+from src.language import LanguageSystem
 
 class Game:
     def __init__(self):
@@ -18,7 +19,8 @@ class Game:
         # Стек состояний (например: Game -> PauseMenu). Текущее состояние - последнее в списке.
         self.state_stack = []
 
-        # Загрузка глобальных ресурсов
+        # Загрузка глобальных ресурсов и подсистем
+        self.language = LanguageSystem()
         self.load_assets()
 
     def load_assets(self):
