@@ -21,6 +21,9 @@ class PlayState(State):
         self.camera.x = (world_pixel_width / 2) - (self.camera.width / 2)
         self.camera.y = (world_pixel_height / 2) - (self.camera.height / 2)
 
+        # Управление слоями (Z-Index)
+        self.show_roofs = True
+
         # Менеджер сущностей
         self.entities = []
 
@@ -36,6 +39,9 @@ class PlayState(State):
                 if event.key == pygame.K_ESCAPE:
                     # По нажатию ESC возвращаемся в предыдущее состояние (меню)
                     self.exit_state()
+                elif event.key == pygame.K_r:
+                    # Переключение видимости крыш
+                    self.show_roofs = not self.show_roofs
 
         # Обновляем логику камеры (передаем нажатые клавиши и события для зума)
         keys = pygame.key.get_pressed()
@@ -52,12 +58,16 @@ class PlayState(State):
         # Заливаем фон базовым цветом (например, цвет пустоты вокруг карты)
         surface.fill((30, 30, 30))
 
-        # Отрисовываем мир с учетом позиции и зума камеры
-        self.world.render(surface, self.camera)
+        # 1. Отрисовываем землю (пол, трава, вода)
+        self.world.render_ground(surface, self.camera)
 
-        # Отрисовываем сущности
+        # 2. Отрисовываем сущности
         for entity in self.entities:
             entity.render(surface, self.camera)
+
+        # 3. Отрисовываем крыши (если включены)
+        if self.show_roofs:
+            self.world.render_roof(surface, self.camera)
 
         # Отрисовываем отладочную информацию (Координаты камеры и зум)
         debug_text = f"Cam: ({int(self.camera.x)}, {int(self.camera.y)}) | Zoom: {self.camera.zoom:.2f}"
