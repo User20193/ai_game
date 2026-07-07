@@ -25,16 +25,36 @@ class World:
             (0, 0, 0),       # 1: Зарезервировано (ранее шум)
             (0, 0, 0),       # 2: Зарезервировано (ранее шум)
             (0, 0, 0),       # 3: Зарезервировано (ранее шум)
-            (100, 100, 100), # 4: Дорога (Серый)
-            (240, 230, 210), # 5: Стена Мэрии (Бежевый)
-            (178, 34, 34),   # 6: Крыша Мэрии (Темно-красный)
+            (180, 180, 180), # 4: Дорога/Тротуар (Светло-серый)
+            (240, 230, 210), # 5: Стена Зданий (Бежевый)
+            (178, 34, 34),   # 6: Крыша Зданий (Темно-красный)
             (139, 69, 19),   # 7: Дверь (Коричневый)
             (205, 170, 125), # 8: Пол внутри (Светлое дерево)
             (101, 67, 33),   # 9: Стойка (Темное дерево)
+            (65, 105, 225),  # 10: Кровать (Синий)
+            (210, 105, 30)   # 11: Стул/Стол (Оранжево-коричневый)
         ]
 
         # Генерируем центр города при старте
         self.build_city_center()
+
+    def get_tile_index(self, world_x, world_y, layer="ground"):
+        """Возвращает индекс цвета тайла по пиксельным мировым координатам."""
+        tile_x = int(world_x // self.TILE_SIZE)
+        tile_y = int(world_y // self.TILE_SIZE)
+
+        chunk_x = tile_x // self.CHUNK_SIZE
+        chunk_y = tile_y // self.CHUNK_SIZE
+
+        ground_chunk, roof_chunk = self.get_chunk(chunk_x, chunk_y)
+        if ground_chunk and roof_chunk:
+            local_x = tile_x % self.CHUNK_SIZE
+            local_y = tile_y % self.CHUNK_SIZE
+            if layer == "ground":
+                return ground_chunk[local_y][local_x]
+            elif layer == "roof":
+                return roof_chunk[local_y][local_x]
+        return None
 
     def get_chunk(self, chunk_x, chunk_y):
         """Возвращает словари слоев чанка по его координатам. Если их нет - генерирует."""
@@ -155,12 +175,53 @@ class World:
         self.set_tile_by_index(door_x, door_y, None, layer="roof")
         self.set_tile_by_index(door_x - 1, door_y, None, layer="roof")
 
-        # Рисуем дорогу перед мэрией
+        # Рисуем тротуар перед мэрией
         road_y = start_y + b_height
-        for x in range(start_x - 6, start_x + b_width + 6):
+        for x in range(start_x - 6, start_x + b_width + 20):
             self.set_tile_by_index(x, road_y, 4, layer="ground")
             self.set_tile_by_index(x, road_y + 1, 4, layer="ground")
             self.set_tile_by_index(x, road_y + 2, 4, layer="ground")
+
+        # --- ДОМИК МЭРА ---
+        h_width = 8
+        h_height = 6
+        h_start_x = start_x + b_width + 6
+        h_start_y = start_y + 2
+
+        # Очищаем площадь
+        for y in range(h_start_y - 1, h_start_y + h_height + 1):
+            for x in range(h_start_x - 1, h_start_x + h_width + 1):
+                self.set_tile_by_index(x, y, 0, layer="ground")
+                self.set_tile_by_index(x, y, None, layer="roof")
+
+        # Рисуем Домик
+        for y in range(h_start_y, h_start_y + h_height):
+            for x in range(h_start_x, h_start_x + h_width):
+                # Периметр
+                if x == h_start_x or x == h_start_x + h_width - 1 or y == h_start_y + h_height - 1 or y == h_start_y:
+                    self.set_tile_by_index(x, y, 5, layer="ground") # Стена
+                else:
+                    self.set_tile_by_index(x, y, 8, layer="ground") # Пол
+                self.set_tile_by_index(x, y, 6, layer="roof") # Крыша
+
+        # Интерьер Домика
+        # Кровать
+        self.set_tile_by_index(h_start_x + 1, h_start_y + 1, 10, layer="ground")
+        self.set_tile_by_index(h_start_x + 1, h_start_y + 2, 10, layer="ground")
+        # Стул
+        self.set_tile_by_index(h_start_x + h_width - 2, h_start_y + 2, 11, layer="ground")
+
+        # Дверь в домик
+        h_door_x = h_start_x + h_width // 2
+        h_door_y = h_start_y + h_height - 1
+        self.set_tile_by_index(h_door_x, h_door_y, 8, layer="ground")
+        self.set_tile_by_index(h_door_x, h_door_y, None, layer="roof")
+        self.set_tile_by_index(h_door_x, h_door_y + 1, 7, layer="ground") # Дверь открыта наружу
+
+        # Тротуарка от двери до основной дороги
+        for y in range(h_door_y + 1, road_y):
+            self.set_tile_by_index(h_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(h_door_x - 1, y, 4, layer="ground")
 
     def _render_layer(self, surface, camera, chunk_surfaces_dict):
         """Вспомогательный метод для рендера конкретного слоя."""

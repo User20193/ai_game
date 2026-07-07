@@ -5,11 +5,12 @@ import os
 from .entity import Entity
 
 class Citizen(Entity):
-    def __init__(self, x, y, language_system):
+    def __init__(self, x, y, language_system, world):
         # Размеры жителя (8 ширина, 18 высота)
         super().__init__(x, y, 8, 18)
 
         self.language = language_system
+        self.world = world
 
         # Процедурная генерация внешности
         self.skin_color = (255, 224, 189) # Телесный
@@ -87,8 +88,29 @@ class Citizen(Entity):
                 self.state_timer = random.uniform(1.0, 4.0) # Стоим от 1 до 4 секунд
             else:
                 # Двигаемся к цели
-                self.x += (dx / dist) * self.speed * dt
-                self.y += (dy / dist) * self.speed * dt
+                step_x = (dx / dist) * self.speed * dt
+                step_y = (dy / dist) * self.speed * dt
+
+                future_x = self.x + step_x
+                future_y = self.y + step_y
+
+                # Проверка коллизий по центру низа ног (самая "твердая" часть жителя)
+                check_x = future_x + self.width / 2
+                check_y = future_y + self.height
+
+                tile_idx = self.world.get_tile_index(check_x, check_y)
+
+                # 5 - Стена, 9 - Стойка (непроходимые)
+                # 6 - Крыша (игнорируем, мы смотрим только ground)
+                # Если наткнулись на стену, прерываем движение
+                if tile_idx in [5, 9]:
+                    self.state = "IDLE"
+                    self.state_timer = random.uniform(1.0, 2.0)
+                    self.target_x = self.x
+                    self.target_y = self.y
+                else:
+                    self.x = future_x
+                    self.y = future_y
 
     def render(self, surface, camera):
         # Получаем координаты на экране с учетом зума
