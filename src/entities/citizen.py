@@ -6,8 +6,8 @@ from .entity import Entity
 
 class Citizen(Entity):
     def __init__(self, x, y, language_system):
-        # Размеры жителя (6 ширина, 14 высота)
-        super().__init__(x, y, 6, 14)
+        # Размеры жителя (8 ширина, 18 высота)
+        super().__init__(x, y, 8, 18)
 
         self.language = language_system
 
@@ -40,7 +40,7 @@ class Citizen(Entity):
         """Создает новую мысль и запускает таймер ее отображения."""
         if self.language:
             self.thought = self.language.generate_thought()
-            self.thought_timer = random.uniform(3.0, 5.0) # Мысль висит от 3 до 5 секунд
+            self.thought_timer = random.uniform(7.0, 10.0) # Мысль висит от 7 до 10 секунд
 
     def update(self, dt):
         # Обновление таймера мысли
@@ -99,15 +99,15 @@ class Citizen(Entity):
         sy = int(screen_rect.y)
 
         # Пропорции для частей тела (при масштабировании)
-        # Оригинал: Голова 4x4, Тело 6x6, Ноги 6x4. Общая высота 14.
+        # Оригинал: Голова 6, Тело 7, Ноги 5. Общая высота 18.
         # Масштаб по высоте
-        head_h = int((4 / 14) * screen_rect.height)
-        body_h = int((6 / 14) * screen_rect.height)
+        head_h = int((6 / 18) * screen_rect.height)
+        body_h = int((7 / 18) * screen_rect.height)
         legs_h = screen_rect.height - head_h - body_h
 
         # Масштаб по ширине (Голова уже туловища на 2 пикселя)
         body_w = int(screen_rect.width)
-        head_w = int((4 / 6) * screen_rect.width)
+        head_w = int((6 / 8) * screen_rect.width)
         head_offset_x = (body_w - head_w) // 2
 
         # Рисуем ноги
