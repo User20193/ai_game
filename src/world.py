@@ -13,8 +13,8 @@ class World:
         self.CHUNK_SIZE = 16 # 16x16 тайлов в одном чанке
 
         # Ограничения карты (в чанках)
-        self.WORLD_WIDTH = 10  # От 0 до 9
-        self.WORLD_HEIGHT = 10 # От 0 до 9
+        self.WORLD_WIDTH = 20  # От 0 до 19
+        self.WORLD_HEIGHT = 20 # От 0 до 19
 
         # Цвета для тестов (трава разных оттенков)
         self.colors = [
@@ -25,7 +25,9 @@ class World:
             (100, 100, 100), # 4: Дорога (Серый)
             (240, 230, 210), # 5: Стена Мэрии (Бежевый)
             (178, 34, 34),   # 6: Крыша Мэрии (Темно-красный)
-            (139, 69, 19)    # 7: Дверь (Коричневый)
+            (139, 69, 19),   # 7: Дверь (Коричневый)
+            (205, 170, 125), # 8: Пол внутри (Светлое дерево)
+            (101, 67, 33)    # 9: Стойка (Темное дерево)
         ]
 
         # Генерируем центр города при старте
@@ -114,31 +116,49 @@ class World:
         center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
 
         # Размеры мэрии (в тайлах)
-        b_width = 10
-        b_height = 6
+        b_width = 14
+        b_height = 10
 
         start_x = center_tx - b_width // 2
         start_y = center_ty - b_height // 2
 
-        # Рисуем здание
+        # Рисуем здание (интерьер и стены)
         for y in range(start_y, start_y + b_height):
             for x in range(start_x, start_x + b_width):
+                # Северная стена (крыша/козырек для вида сверху-сбоку)
                 if y == start_y or y == start_y + 1:
                     self.set_tile_by_index(x, y, 6) # Крыша
-                else:
+                # Периметр (западная, восточная, южная стены)
+                elif x == start_x or x == start_x + b_width - 1 or y == start_y + b_height - 1:
                     self.set_tile_by_index(x, y, 5) # Стена
+                # Внутреннее пространство
+                else:
+                    self.set_tile_by_index(x, y, 8) # Пол
+
+        # Рисуем стойку внутри (reception)
+        reception_y = start_y + 4
+        for x in range(start_x + 3, start_x + b_width - 3):
+            self.set_tile_by_index(x, reception_y, 9)
 
         # Рисуем дверь
         door_x = center_tx
         door_y = start_y + b_height - 1
-        self.set_tile_by_index(door_x, door_y, 7)
-        self.set_tile_by_index(door_x, door_y - 1, 7)
+        # Делаем проход шире (2 тайла)
+        self.set_tile_by_index(door_x, door_y, 8) # Пол на входе
+        self.set_tile_by_index(door_x - 1, door_y, 8)
+        self.set_tile_by_index(door_x, door_y - 1, 8)
+        self.set_tile_by_index(door_x - 1, door_y - 1, 8)
+
+        # Сами двери чуть выдвинуты (или открыты)
+        self.set_tile_by_index(door_x + 1, door_y, 7)
+        self.set_tile_by_index(door_x - 2, door_y, 7)
 
         # Рисуем дорогу перед мэрией
         road_y = start_y + b_height
-        for x in range(start_x - 5, start_x + b_width + 5):
+        for x in range(start_x - 6, start_x + b_width + 6):
             self.set_tile_by_index(x, road_y, 4)
             self.set_tile_by_index(x, road_y + 1, 4)
+            self.set_tile_by_index(x, road_y + 2, 4)
 
     def render(self, surface, camera):
         """

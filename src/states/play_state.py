@@ -11,12 +11,14 @@ class PlayState(State):
         self.world = World(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
         self.camera = Camera(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
 
-        # Центрируем камеру на карте
+        # Центрируем камеру на карте (чтобы центр мира был в центре экрана)
         # Размер мира в пикселях: (WORLD_WIDTH * CHUNK_SIZE * TILE_SIZE)
         world_pixel_width = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
         world_pixel_height = self.world.WORLD_HEIGHT * self.world.CHUNK_SIZE * self.world.TILE_SIZE
-        self.camera.x = world_pixel_width / 2
-        self.camera.y = world_pixel_height / 2
+
+        # Чтобы объект оказался в центре экрана, нужно из координаты объекта вычесть половину экрана
+        self.camera.x = (world_pixel_width / 2) - (self.camera.width / 2)
+        self.camera.y = (world_pixel_height / 2) - (self.camera.height / 2)
 
     def update(self, dt, events):
         for event in events:
