@@ -1,5 +1,7 @@
 import pygame
 import random
+from src.registry.tiles import TileRegistry
+from src.world_gen.prefabs import get_city_hall_prefab, get_mayor_house_prefab, apply_prefab
 
 class World:
     def __init__(self, screen_width, screen_height):
@@ -13,27 +15,18 @@ class World:
         self.chunk_surfaces_ground = {}
         self.chunk_surfaces_roof = {}
 
+        # Очередь для отложенной перерисовки чанков (оптимизация)
+        self.dirty_ground = set()
+        self.dirty_roof = set()
+
         self.CHUNK_SIZE = 16 # 16x16 тайлов в одном чанке
 
         # Ограничения карты (в чанках)
         self.WORLD_WIDTH = 20  # От 0 до 19
         self.WORLD_HEIGHT = 20 # От 0 до 19
 
-        # Палитра
-        self.colors = [
-            (124, 204, 31),  # 0: Чистая трава (Светло-зеленый)
-            (0, 0, 0),       # 1: Зарезервировано (ранее шум)
-            (0, 0, 0),       # 2: Зарезервировано (ранее шум)
-            (0, 0, 0),       # 3: Зарезервировано (ранее шум)
-            (180, 180, 180), # 4: Дорога/Тротуар (Светло-серый)
-            (240, 230, 210), # 5: Стена Зданий (Бежевый)
-            (178, 34, 34),   # 6: Крыша Зданий (Темно-красный)
-            (139, 69, 19),   # 7: Дверь (Коричневый)
-            (205, 170, 125), # 8: Пол внутри (Светлое дерево)
-            (101, 67, 33),   # 9: Стойка (Темное дерево)
-            (65, 105, 225),  # 10: Кровать (Синий)
-            (210, 105, 30)   # 11: Стул/Стол (Оранжево-коричневый)
-        ]
+        # Реестр тайлов
+        self.tile_registry = TileRegistry()
 
         # Генерируем центр города при старте
         self.build_city_center()
@@ -87,8 +80,9 @@ class World:
             for tx in range(self.CHUNK_SIZE):
                 color_idx = ground_chunk[ty][tx]
                 if color_idx is not None:
+                    tile = self.tile_registry.get_tile(color_idx)
                     rect = pygame.Rect(tx * self.TILE_SIZE, ty * self.TILE_SIZE, self.TILE_SIZE, self.TILE_SIZE)
-                    pygame.draw.rect(surf_ground, self.colors[color_idx], rect)
+                    pygame.draw.rect(surf_ground, tile.color, rect)
         self.chunk_surfaces_ground[(chunk_x, chunk_y)] = surf_ground
 
         # Roof Layer (с альфа-каналом, так как он прозрачный)
@@ -97,8 +91,9 @@ class World:
             for tx in range(self.CHUNK_SIZE):
                 color_idx = roof_chunk[ty][tx]
                 if color_idx is not None:
+                    tile = self.tile_registry.get_tile(color_idx)
                     rect = pygame.Rect(tx * self.TILE_SIZE, ty * self.TILE_SIZE, self.TILE_SIZE, self.TILE_SIZE)
-                    pygame.draw.rect(surf_roof, self.colors[color_idx], rect)
+                    pygame.draw.rect(surf_roof, tile.color, rect)
         self.chunk_surfaces_roof[(chunk_x, chunk_y)] = surf_roof
 
     def set_tile_by_index(self, tile_x, tile_y, color_idx, layer="ground"):
@@ -112,13 +107,23 @@ class World:
             local_y = tile_y % self.CHUNK_SIZE
             if layer == "ground":
                 ground_chunk[local_y][local_x] = color_idx
+                self.dirty_ground.add((chunk_x, chunk_y))
             elif layer == "roof":
                 roof_chunk[local_y][local_x] = color_idx
+                self.dirty_roof.add((chunk_x, chunk_y))
+
+    def update_dirty_chunks(self):
+        """Перерисовывает только измененные чанки."""
+        chunks_to_render = self.dirty_ground.union(self.dirty_roof)
+        for chunk_x, chunk_y in chunks_to_render:
             self.render_chunk_surface(chunk_x, chunk_y)
 
+        self.dirty_ground.clear()
+        self.dirty_roof.clear()
+
     def build_city_center(self):
-        """Генерирует все чанки и строит Мэрию с дорогой в центре карты."""
-        # Сначала генерируем все чанки
+        """Генерирует все чанки и строит здания в центре карты через систему префабов."""
+        # Сначала генерируем базовую траву для всех чанков
         for cy in range(self.WORLD_HEIGHT):
             for cx in range(self.WORLD_WIDTH):
                 self.get_chunk(cx, cy)
@@ -127,101 +132,39 @@ class World:
         center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
         center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
 
-        # Размеры мэрии (в тайлах)
-        b_width = 14
-        b_height = 10
+        # Префаб Мэрии
+        city_hall = get_city_hall_prefab()
+        ch_x = center_tx - city_hall.width // 2
+        ch_y = center_ty - city_hall.height // 2
+        apply_prefab(self, ch_x, ch_y, city_hall)
 
-        start_x = center_tx - b_width // 2
-        start_y = center_ty - b_height // 2
+        # Префаб Домика Мэра
+        mayor_house = get_mayor_house_prefab()
+        mh_x = ch_x + city_hall.width + 6
+        mh_y = ch_y + 2
+        apply_prefab(self, mh_x, mh_y, mayor_house)
 
-        # Очищаем площадь под Мэрию (убираем деревья и воду)
-        for y in range(start_y - 2, start_y + b_height + 4):
-            for x in range(start_x - 8, start_x + b_width + 8):
-                self.set_tile_by_index(x, y, 0, layer="ground") # Трава
-                self.set_tile_by_index(x, y, None, layer="roof") # Очищаем крышу (убираем деревья)
+        # Рисуем дорогу перед мэрией
+        road_y = ch_y + city_hall.height
+        for x in range(ch_x - 6, ch_x + city_hall.width + 20):
+            for dy in range(3):
+                self.set_tile_by_index(x, road_y + dy, 4, layer="ground")
 
-        # Рисуем здание (интерьер и стены) на слое ground
-        for y in range(start_y, start_y + b_height):
-            for x in range(start_x, start_x + b_width):
-                # Периметр (западная, восточная, южная, северная стены)
-                if x == start_x or x == start_x + b_width - 1 or y == start_y + b_height - 1 or y == start_y or y == start_y + 1:
-                    self.set_tile_by_index(x, y, 5, layer="ground") # Стена
-                # Внутреннее пространство
-                else:
-                    self.set_tile_by_index(x, y, 8, layer="ground") # Пол
+        # Дорожка от дома мэра к основной дороге
+        mh_door_x = mh_x + mayor_house.width // 2
+        for y in range(mh_y + mayor_house.height, road_y):
+            self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(mh_door_x - 1, y, 4, layer="ground")
 
-                # Всю площадь мэрии покрываем крышей на слое roof
-                self.set_tile_by_index(x, y, 6, layer="roof") # Крыша
-
-        # Рисуем стойку внутри (reception)
-        reception_y = start_y + 4
-        for x in range(start_x + 3, start_x + b_width - 3):
-            self.set_tile_by_index(x, reception_y, 9, layer="ground")
-
-        # Рисуем дверь
+        # Открытые двери (выходят за рамки префаба, т.к. "открыты" на улицу)
         door_x = center_tx
-        door_y = start_y + b_height - 1
-        # Делаем проход шире (2 тайла)
-        self.set_tile_by_index(door_x, door_y, 8, layer="ground") # Пол на входе
-        self.set_tile_by_index(door_x - 1, door_y, 8, layer="ground")
-        self.set_tile_by_index(door_x, door_y - 1, 8, layer="ground")
-        self.set_tile_by_index(door_x - 1, door_y - 1, 8, layer="ground")
-
-        # Сами двери чуть выдвинуты (или открыты)
+        door_y = ch_y + city_hall.height - 1
         self.set_tile_by_index(door_x + 1, door_y, 7, layer="ground")
         self.set_tile_by_index(door_x - 2, door_y, 7, layer="ground")
 
-        # Убираем крышу над входом, чтобы было видно дверь
-        self.set_tile_by_index(door_x, door_y, None, layer="roof")
-        self.set_tile_by_index(door_x - 1, door_y, None, layer="roof")
+        self.set_tile_by_index(mh_door_x, mh_y + mayor_house.height, 7, layer="ground")
 
-        # Рисуем тротуар перед мэрией
-        road_y = start_y + b_height
-        for x in range(start_x - 6, start_x + b_width + 20):
-            self.set_tile_by_index(x, road_y, 4, layer="ground")
-            self.set_tile_by_index(x, road_y + 1, 4, layer="ground")
-            self.set_tile_by_index(x, road_y + 2, 4, layer="ground")
-
-        # --- ДОМИК МЭРА ---
-        h_width = 8
-        h_height = 6
-        h_start_x = start_x + b_width + 6
-        h_start_y = start_y + 2
-
-        # Очищаем площадь
-        for y in range(h_start_y - 1, h_start_y + h_height + 1):
-            for x in range(h_start_x - 1, h_start_x + h_width + 1):
-                self.set_tile_by_index(x, y, 0, layer="ground")
-                self.set_tile_by_index(x, y, None, layer="roof")
-
-        # Рисуем Домик
-        for y in range(h_start_y, h_start_y + h_height):
-            for x in range(h_start_x, h_start_x + h_width):
-                # Периметр
-                if x == h_start_x or x == h_start_x + h_width - 1 or y == h_start_y + h_height - 1 or y == h_start_y:
-                    self.set_tile_by_index(x, y, 5, layer="ground") # Стена
-                else:
-                    self.set_tile_by_index(x, y, 8, layer="ground") # Пол
-                self.set_tile_by_index(x, y, 6, layer="roof") # Крыша
-
-        # Интерьер Домика
-        # Кровать
-        self.set_tile_by_index(h_start_x + 1, h_start_y + 1, 10, layer="ground")
-        self.set_tile_by_index(h_start_x + 1, h_start_y + 2, 10, layer="ground")
-        # Стул
-        self.set_tile_by_index(h_start_x + h_width - 2, h_start_y + 2, 11, layer="ground")
-
-        # Дверь в домик
-        h_door_x = h_start_x + h_width // 2
-        h_door_y = h_start_y + h_height - 1
-        self.set_tile_by_index(h_door_x, h_door_y, 8, layer="ground")
-        self.set_tile_by_index(h_door_x, h_door_y, None, layer="roof")
-        self.set_tile_by_index(h_door_x, h_door_y + 1, 7, layer="ground") # Дверь открыта наружу
-
-        # Тротуарка от двери до основной дороги
-        for y in range(h_door_y + 1, road_y):
-            self.set_tile_by_index(h_door_x, y, 4, layer="ground")
-            self.set_tile_by_index(h_door_x - 1, y, 4, layer="ground")
+        self.update_dirty_chunks()
 
     def _render_layer(self, surface, camera, chunk_surfaces_dict):
         """Вспомогательный метод для рендера конкретного слоя."""

@@ -99,11 +99,10 @@ class Citizen(Entity):
                 check_y = future_y + self.height
 
                 tile_idx = self.world.get_tile_index(check_x, check_y)
+                tile = self.world.tile_registry.get_tile(tile_idx)
 
-                # 5 - Стена, 9 - Стойка (непроходимые)
-                # 6 - Крыша (игнорируем, мы смотрим только ground)
-                # Если наткнулись на стену, прерываем движение
-                if tile_idx in [5, 9]:
+                # Если тайл непроходимый (is_solid), прерываем движение
+                if tile.is_solid:
                     self.state = "IDLE"
                     self.state_timer = random.uniform(1.0, 2.0)
                     self.target_x = self.x
